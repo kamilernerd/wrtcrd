@@ -40,7 +40,7 @@ func initCapturer() []Screen {
 }
 
 func (c *Capturer) FrameCapturer(index int) {
-	delta := time.Duration(time.Second.Seconds()/120.0) * time.Millisecond
+	delta := time.Duration(time.Second.Seconds()/60.0) * time.Millisecond
 
 	for {
 		screen := c.Screens[index]
