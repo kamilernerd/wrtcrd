@@ -10,14 +10,10 @@ import (
 )
 
 type Stream struct {
-	Close chan int
-	Peer  *webrtc.PeerConnection
-}
-
-type ChannelDeviceInput struct {
-	Input  string `json:"input"`
-	Button string `json:"button"`
-	Action string `json:"action"`
+	Close               chan int
+	Peer                *webrtc.PeerConnection
+	MouseDataChannel    *webrtc.DataChannel
+	KeyboardDataChannel *webrtc.DataChannel
 }
 
 func (s *Stream) NewWebrtcSession(sdp string, capturer *Capturer) (*webrtc.SessionDescription, error) {
@@ -28,6 +24,14 @@ func (s *Stream) NewWebrtcSession(sdp string, capturer *Capturer) (*webrtc.Sessi
 		track := s.addVideoTrack(v.Index)
 		go s.writeTrack(track, v)
 	}
+
+	s.KeyboardDataChannel.OnMessage(func(msg webrtc.DataChannelMessage) {
+
+	})
+
+	s.MouseDataChannel.OnMessage(func(msg webrtc.DataChannelMessage) {
+		MessageHandler(msg, capturer)
+	})
 
 	offer := webrtc.SessionDescription{
 		SDP:  sdp,
@@ -75,21 +79,41 @@ func (s *Stream) createPeer() *webrtc.PeerConnection {
 		panic(err)
 	}
 
+	var keyboardOrdered, keyboardNegotiated, keyboardChannelId = true, false, uint16(1)
+	s.KeyboardDataChannel, _ = s.Peer.CreateDataChannel("keyboard", &webrtc.DataChannelInit{
+		Ordered:    &keyboardOrdered,
+		Negotiated: &keyboardNegotiated,
+		ID:         &keyboardChannelId,
+	})
+
+	var mouseOrdered, mouseNegotiated, mouseChannelId = true, false, uint16(2)
+	s.MouseDataChannel, _ = s.Peer.CreateDataChannel("mouse", &webrtc.DataChannelInit{
+		Ordered:    &mouseOrdered,
+		Negotiated: &mouseNegotiated,
+		ID:         &mouseChannelId,
+	})
+
 	peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
 		if connectionState == webrtc.ICEConnectionStateClosed {
 			fmt.Println("ICE has closed the connection")
+			s.KeyboardDataChannel.Close()
+			s.MouseDataChannel.Close()
 			s.Close <- 1
 			return
 		}
 
 		if connectionState == webrtc.ICEConnectionStateDisconnected {
 			fmt.Println("ICE has disconnected")
+			s.KeyboardDataChannel.Close()
+			s.MouseDataChannel.Close()
 			s.Close <- 1
 			return
 		}
 
 		if connectionState == webrtc.ICEConnectionStateFailed {
 			fmt.Println("ICE Connection has gone to failed exiting")
+			s.KeyboardDataChannel.Close()
+			s.MouseDataChannel.Close()
 			s.Close <- 1
 			return
 		}
@@ -103,6 +127,8 @@ func (s *Stream) createPeer() *webrtc.PeerConnection {
 		// Closed due to some error, or just after a disconnect.
 		if conn == webrtc.PeerConnectionStateFailed {
 			fmt.Println("Peer Connection has gone to failed exiting")
+			s.KeyboardDataChannel.Close()
+			s.MouseDataChannel.Close()
 			s.Close <- 1
 			return
 		}
@@ -110,6 +136,8 @@ func (s *Stream) createPeer() *webrtc.PeerConnection {
 		// Closed unexpectedly.
 		if conn == webrtc.PeerConnectionStateClosed {
 			fmt.Println("Peer has closed the connection")
+			s.KeyboardDataChannel.Close()
+			s.MouseDataChannel.Close()
 			s.Close <- 1
 			return
 		}
@@ -117,6 +145,8 @@ func (s *Stream) createPeer() *webrtc.PeerConnection {
 		// Normal disconnect
 		if conn == webrtc.PeerConnectionStateDisconnected {
 			fmt.Println("Peer has disconnected")
+			s.KeyboardDataChannel.Close()
+			s.MouseDataChannel.Close()
 			s.Close <- 1
 			return
 		}

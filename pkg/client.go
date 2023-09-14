@@ -30,8 +30,8 @@ func NewClient() *Client {
 func (c *Client) NewConnection(conn *websocket.Conn) {
 	defer func() {
 		c.Conn.Close()
-		c.Conn = nil
 		c.Stream.Peer.Close()
+		c.Conn = nil
 	}()
 
 	c.Conn = conn

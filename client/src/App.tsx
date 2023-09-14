@@ -2,7 +2,7 @@ import { useRef } from "react";
 
 function App() {
   const videoRef = useRef<HTMLVideoElement | null>();
-  const socket = new WebSocket("ws://localhost:8080/ws");
+  const socket = new WebSocket("ws://localhost:1337/ws");
   const pc = new RTCPeerConnection({
     iceServers: [
       {
@@ -10,6 +10,10 @@ function App() {
       }
     ],
   });
+
+  pc.ondatachannel = (ev: RTCDataChannelEvent) => {
+    console.log(ev)
+  }
 
   pc.onconnectionstatechange = async (ev: Event) => {
     console.log(pc.connectionState)
@@ -45,7 +49,7 @@ function App() {
     setTimeout(heartbeat, 15000); // 15 sec
   }
 
-  socket.onmessage = function (e) {
+  socket.onmessage = function(e) {
     const message = JSON.parse(String(e.data)) as SocketMessage;
     switch (message.Event) {
       case "answer":
