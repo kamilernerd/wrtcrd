@@ -23,7 +23,6 @@ func NewEncoder(size image.Rectangle) *X264Encoder {
 		Tune:      "zerolatency",
 		Preset:    "ultrafast",
 		Profile:   "baseline",
-		LogLevel:  x264.LogDebug,
 	})
 
 	if err != nil {

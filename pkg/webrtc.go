@@ -25,6 +25,20 @@ func (s *Stream) NewWebrtcSession(sdp string, capturer *Capturer) (*webrtc.Sessi
 		go s.writeTrack(track, v)
 	}
 
+	var keyboardOrdered, keyboardNegotiated, keyboardChannelId = true, false, uint16(1)
+	s.KeyboardDataChannel, _ = s.Peer.CreateDataChannel("keyboard", &webrtc.DataChannelInit{
+		Ordered:    &keyboardOrdered,
+		Negotiated: &keyboardNegotiated,
+		ID:         &keyboardChannelId,
+	})
+
+	var mouseOrdered, mouseNegotiated, mouseChannelId = true, false, uint16(2)
+	s.MouseDataChannel, _ = s.Peer.CreateDataChannel("mouse", &webrtc.DataChannelInit{
+		Ordered:    &mouseOrdered,
+		Negotiated: &mouseNegotiated,
+		ID:         &mouseChannelId,
+	})
+
 	s.KeyboardDataChannel.OnMessage(func(msg webrtc.DataChannelMessage) {
 
 	})
@@ -75,23 +89,10 @@ func (s *Stream) createPeer() *webrtc.PeerConnection {
 			},
 		},
 	})
+
 	if err != nil {
 		panic(err)
 	}
-
-	var keyboardOrdered, keyboardNegotiated, keyboardChannelId = true, false, uint16(1)
-	s.KeyboardDataChannel, _ = s.Peer.CreateDataChannel("keyboard", &webrtc.DataChannelInit{
-		Ordered:    &keyboardOrdered,
-		Negotiated: &keyboardNegotiated,
-		ID:         &keyboardChannelId,
-	})
-
-	var mouseOrdered, mouseNegotiated, mouseChannelId = true, false, uint16(2)
-	s.MouseDataChannel, _ = s.Peer.CreateDataChannel("mouse", &webrtc.DataChannelInit{
-		Ordered:    &mouseOrdered,
-		Negotiated: &mouseNegotiated,
-		ID:         &mouseChannelId,
-	})
 
 	peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
 		if connectionState == webrtc.ICEConnectionStateClosed {
@@ -194,8 +195,9 @@ func (s *Stream) writeTrack(track *webrtc.TrackLocalStaticSample, screen Screen)
 			}
 
 			err = track.WriteSample(media.Sample{
-				Data:     b,
-				Duration: time.Duration(time.Millisecond),
+				Data:            b,
+				Duration:        time.Duration(time.Millisecond),
+				PacketTimestamp: uint32(time.Now().Unix()),
 			})
 
 			if err != nil {

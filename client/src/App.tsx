@@ -1,7 +1,10 @@
-import { useRef } from "react";
+import { useState } from "react";
 
 function App() {
-  const videoRef = useRef<HTMLVideoElement | null>();
+  const [streams, setStreams] = useState<Array<{
+    stream: MediaStream,
+    ref: HTMLVideoElement
+  }>>([])
   const socket = new WebSocket("ws://localhost:1337/ws");
   const pc = new RTCPeerConnection({
     iceServers: [
@@ -23,12 +26,20 @@ function App() {
   }
 
   pc.ontrack = (evt: RTCTrackEvent) => {
-    if (videoRef.current) {
-      console.log(evt.streams);
-      videoRef.current.srcObject = evt.streams[0];
-      videoRef.current.muted = true;
-      videoRef.current.play();
-    }
+    console.log(evt.streams);
+    const videoElement = document.createElement("video")
+    setStreams((prev) => [...prev, {
+      stream: evt.streams[0],
+      ref: videoElement,
+    }])
+
+    videoElement.width = 640
+    videoElement.height = 480
+    videoElement.srcObject = evt.streams[0];
+    videoElement.muted = true;
+    videoElement.play();
+
+    document.querySelector("#streams")?.appendChild(videoElement)
   }
 
   socket.onopen = async (ev: Event) => {
@@ -68,8 +79,13 @@ function App() {
         }
       };
 
+      // Offer to receive multiple video tracks on the same connection
+      pc.addTransceiver("video")
+      pc.addTransceiver("video")
+
       pc.createOffer({
-        offerToReceiveAudio: false,
+        iceRestart: true,
+        offerToReceiveAudio: true,
         offerToReceiveVideo: true,
       })
         .then((ld) => {
@@ -81,7 +97,13 @@ function App() {
 
   return (
     <>
-      <video width="640" height="480" ref={(r) => (videoRef.current = r)} controls autoPlay muted />
+      <div id="streams">
+        <>
+          {streams.length === 0 ?? (
+            <p>No active streams</p>
+          )}
+        </>
+      </div>
       <button onClick={async () => {
         socket.send(JSON.stringify({
           Event: "stop",
