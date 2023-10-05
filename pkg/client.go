@@ -27,12 +27,14 @@ func NewClient() *Client {
 	}
 }
 
+func (c *Client) Close() {
+	c.Conn.Close()
+	c.Stream.Peer.Close()
+	c.Conn = nil
+}
+
 func (c *Client) NewConnection(conn *websocket.Conn) {
-	defer func() {
-		c.Conn.Close()
-		c.Stream.Peer.Close()
-		c.Conn = nil
-	}()
+	defer c.Close()
 
 	c.Conn = conn
 
@@ -66,6 +68,7 @@ func (c *Client) NewConnection(conn *websocket.Conn) {
 				Value: answer,
 			})
 		case "stop":
+			c.Close()
 			break
 		}
 	}

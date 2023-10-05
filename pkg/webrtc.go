@@ -206,19 +206,16 @@ func (s *Stream) writeAudioTrack(track *webrtc.TrackLocalStaticSample) {
 	frameSizeMs := 60
 	frameSize := sampleRate * frameSizeMs / 1000
 	buffer := make([]int16, frameSize)
-	defaultOutputDevice, err := portaudio.DefaultHostApi()
+	defaultInputDevice, err := portaudio.DefaultInputDevice()
 
 	if err != nil {
 		fmt.Errorf("Could not get default device %v", err)
 		return
 	}
 
-	x, _ := portaudio.DefaultOutputDevice()
-	fmt.Printf("%+v \n %+v", defaultOutputDevice, x)
-
 	stream, err := portaudio.OpenStream(portaudio.StreamParameters{
 		Input: portaudio.StreamDeviceParameters{
-			Device:   defaultOutputDevice.DefaultInputDevice,
+			Device:   defaultInputDevice,
 			Channels: 1,
 			Latency:  time.Duration(time.Millisecond * 10),
 		},
