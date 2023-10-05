@@ -36,7 +36,8 @@ function App() {
     videoElement.width = 640
     videoElement.height = 480
     videoElement.srcObject = evt.streams[0];
-    videoElement.muted = true;
+    videoElement.muted = false;
+    videoElement.controls = true;
     videoElement.play();
 
     document.querySelector("#streams")?.appendChild(videoElement)
@@ -82,6 +83,7 @@ function App() {
       // Offer to receive multiple video tracks on the same connection
       pc.addTransceiver("video")
       pc.addTransceiver("video")
+      pc.addTransceiver("audio")
 
       pc.createOffer({
         iceRestart: true,
