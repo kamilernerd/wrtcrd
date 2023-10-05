@@ -266,7 +266,14 @@ func (s *Stream) writeAudioTrack(track *webrtc.TrackLocalStaticSample) {
 
 	defer stream.Close()
 
+	// Keep routine up and listen to close to stop endcoding and listening
 	for {
+		select {
+		case <-s.Close:
+			return
+		default:
+			continue
+		}
 	}
 }
 
