@@ -80,7 +80,7 @@ function App() {
         }
       };
 
-      // Offer to receive multiple video tracks on the same connection
+      // Offer to receive multiple these tracks
       pc.addTransceiver("video")
       pc.addTransceiver("video")
       pc.addTransceiver("audio")
