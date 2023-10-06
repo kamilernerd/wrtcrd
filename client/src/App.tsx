@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { KeyDownListener, KeyUpListener } from "./lib";
 
 function App() {
   const [streams, setStreams] = useState<Array<{
@@ -18,10 +19,21 @@ function App() {
     console.log(ev)
   }
 
+  const keyboardDataChannel = pc.createDataChannel("keyboard", {
+    negotiated: true,
+    ordered: true,
+    id: 1
+  })
+
   pc.onconnectionstatechange = async (ev: Event) => {
     console.log(pc.connectionState)
     if (pc.connectionState === "disconnected" || pc.connectionState === "failed" || pc.connectionState === "closed") {
       socket.close();
+    }
+
+    if (pc.connectionState === "connected") {
+      console.info("Stats:", await pc.getStats())
+      console.info("Configuration:", pc.getConfiguration())
     }
   }
 
@@ -40,6 +52,9 @@ function App() {
     videoElement.controls = true;
     videoElement.play();
 
+    videoElement.onkeydown = ev => KeyDownListener(ev, keyboardDataChannel)
+    videoElement.onkeyup = ev => KeyUpListener(ev, keyboardDataChannel)
+
     document.querySelector("#streams")?.appendChild(videoElement)
   }
 
@@ -53,12 +68,13 @@ function App() {
   }
 
   socket.onclose = (e) => {
+    keyboardDataChannel.close();
     pc.close();
   }
 
   function heartbeat() {
     socket.send("heartbeat");
-    setTimeout(heartbeat, 15000); // 15 sec
+    setTimeout(heartbeat, 200); // 200ms
   }
 
   socket.onmessage = function(e) {

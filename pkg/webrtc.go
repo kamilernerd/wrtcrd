@@ -44,8 +44,12 @@ func (s *Stream) NewWebrtcSession(sdp string, capturer *Capturer) (*webrtc.Sessi
 		ID:         &mouseChannelId,
 	})
 
-	s.KeyboardDataChannel.OnMessage(func(msg webrtc.DataChannelMessage) {
+	keyboardHandler := &KeyboardHandler{}
 
+	s.KeyboardDataChannel.OnMessage(func(msg webrtc.DataChannelMessage) {
+		data := keyboardHandler.UnmarshallDatagram(msg.Data)
+		keyboardHandler.HandleKeyboardInput(data)
+		return
 	})
 
 	s.MouseDataChannel.OnMessage(func(msg webrtc.DataChannelMessage) {

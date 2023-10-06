@@ -70,6 +70,8 @@ func (c *Client) NewConnection(conn *websocket.Conn) {
 		case "stop":
 			c.Close()
 			break
+		default:
+			continue
 		}
 	}
 }
