@@ -45,6 +45,7 @@ func (s *Stream) NewWebrtcSession(sdp string, capturer *Capturer) (*webrtc.Sessi
 	})
 
 	keyboardHandler := &KeyboardHandler{}
+	mouseHandler := &MouseHandler{}
 
 	s.KeyboardDataChannel.OnMessage(func(msg webrtc.DataChannelMessage) {
 		data := keyboardHandler.UnmarshallDatagram(msg.Data)
@@ -53,7 +54,7 @@ func (s *Stream) NewWebrtcSession(sdp string, capturer *Capturer) (*webrtc.Sessi
 	})
 
 	s.MouseDataChannel.OnMessage(func(msg webrtc.DataChannelMessage) {
-		MessageHandler(msg, capturer)
+		mouseHandler.MouseinputHandler(msg.Data, capturer)
 	})
 
 	offer := webrtc.SessionDescription{

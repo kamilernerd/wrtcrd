@@ -1,11 +1,15 @@
 import { useState } from "react";
-import { KeyDownListener, KeyUpListener } from "./lib";
+import { KeyDownListener, KeyUpListener, MouseEventListener, MouseUpListener, MouseDownListener, MouseScrollListener } from "./lib";
+
+type StreamsMap = Array<{
+  stream: MediaStream,
+  ref: HTMLVideoElement
+  canvas: HTMLCanvasElement | null
+}>
 
 function App() {
-  const [streams, setStreams] = useState<Array<{
-    stream: MediaStream,
-    ref: HTMLVideoElement
-  }>>([])
+  const FPS_DRAW_CAP = 1000 / 60 // 60fps cap
+  const [streams, setStreams] = useState<StreamsMap>([])
   const socket = new WebSocket("ws://localhost:1337/ws");
   const pc = new RTCPeerConnection({
     iceServers: [
@@ -15,9 +19,7 @@ function App() {
     ],
   });
 
-  pc.ondatachannel = (ev: RTCDataChannelEvent) => {
-    console.log(ev)
-  }
+  pc.ondatachannel = (ev: RTCDataChannelEvent) => { }
 
   const keyboardDataChannel = pc.createDataChannel("keyboard", {
     negotiated: true,
@@ -25,10 +27,20 @@ function App() {
     id: 1
   })
 
+  const mouseDataChannel = pc.createDataChannel("mouse", {
+    negotiated: true,
+    ordered: true,
+    id: 2
+  })
+
   pc.onconnectionstatechange = async (ev: Event) => {
     console.log(pc.connectionState)
     if (pc.connectionState === "disconnected" || pc.connectionState === "failed" || pc.connectionState === "closed") {
       socket.close();
+
+      // remove old streams
+      const streams = document.getElementById("streams");
+      streams!.innerHTML = '';
     }
 
     if (pc.connectionState === "connected") {
@@ -38,24 +50,64 @@ function App() {
   }
 
   pc.ontrack = (evt: RTCTrackEvent) => {
-    console.log(evt.streams);
     const videoElement = document.createElement("video")
-    setStreams((prev) => [...prev, {
-      stream: evt.streams[0],
-      ref: videoElement,
-    }])
 
-    videoElement.width = 640
-    videoElement.height = 480
-    videoElement.srcObject = evt.streams[0];
-    videoElement.muted = false;
-    videoElement.controls = true;
-    videoElement.play();
+    if (evt.streams[0].id === "audio-system") {
+      videoElement.srcObject = evt.streams[0];
+      videoElement.muted = false;
+      videoElement.controls = true;
+      videoElement.id = evt.streams[0].id
+      videoElement.play();
 
-    videoElement.onkeydown = ev => KeyDownListener(ev, keyboardDataChannel)
-    videoElement.onkeyup = ev => KeyUpListener(ev, keyboardDataChannel)
+      setStreams((prev) => [...prev, {
+        stream: evt.streams[0],
+        ref: videoElement,
+        canvas: null
+      }])
 
-    document.querySelector("#streams")?.appendChild(videoElement)
+      document.querySelector("#streams")?.appendChild(videoElement)
+    } else {
+      const canvas = document.createElement("canvas")
+      const ctx = canvas.getContext("2d")
+
+      setStreams((prev) => [...prev, {
+        stream: evt.streams[0],
+        ref: videoElement,
+        canvas: canvas,
+      }])
+
+      videoElement.srcObject = evt.streams[0];
+      videoElement.muted = false;
+      videoElement.controls = false;
+      videoElement.style.display = "none"
+      canvas.id = evt.streams[0].id.replace("remote-display-", "")
+
+      videoElement.play();
+
+      canvas.width = window.innerWidth / 2
+      canvas.height = window.innerHeight / 2
+
+      // Drawing loop
+      videoElement.onplay = () => {
+        function loop() {
+          setTimeout(() => { }, FPS_DRAW_CAP) // SLEEP
+
+          ctx?.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+          requestAnimationFrame(loop);
+        }
+        requestAnimationFrame(loop);
+      }
+
+      canvas.onkeydown = ev => KeyDownListener(ev, keyboardDataChannel)
+      canvas.onkeyup = ev => KeyUpListener(ev, keyboardDataChannel)
+      canvas.onmousemove = ev => MouseEventListener(ev, mouseDataChannel)
+      canvas.onmousedown = ev => MouseDownListener(ev, mouseDataChannel)
+      canvas.onmouseup = ev => MouseUpListener(ev, mouseDataChannel)
+      canvas.onwheel = ev => MouseScrollListener(ev, mouseDataChannel)
+
+      document.querySelector("#streams")?.appendChild(videoElement)
+      document.querySelector("#streams")?.appendChild(canvas)
+    }
   }
 
   socket.onopen = async (ev: Event) => {
@@ -74,14 +126,13 @@ function App() {
 
   function heartbeat() {
     socket.send("heartbeat");
-    setTimeout(heartbeat, 200); // 200ms
+    setTimeout(heartbeat, 100); // 100ms
   }
 
   socket.onmessage = function(e) {
     const message = JSON.parse(String(e.data)) as SocketMessage;
     switch (message.Event) {
       case "answer":
-        console.log(message);
         pc.setRemoteDescription(new RTCSessionDescription(message.Value));
         break;
     }
